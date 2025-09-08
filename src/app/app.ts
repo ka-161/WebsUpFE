@@ -1,8 +1,8 @@
 import { Component, signal } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { TaskList } from './components/task-list/task-list';
-import { SubTaskList } from './components/sub-task-list/sub-task-list';
-import { ModuleList } from './components/module-list/module-list';
+import { TaskList } from './templates/task-list/task-list';
+import { SubTaskList } from './templates/sub-task-list/sub-task-list';
+import { ModuleList } from './templates/module-list/module-list';
 import { CommonModule } from '@angular/common';
 
 @Component({
