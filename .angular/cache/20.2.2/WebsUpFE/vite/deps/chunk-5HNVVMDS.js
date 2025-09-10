@@ -3255,7 +3255,7 @@ function tap(observerOrNext, error, complete) {
   }) : identity;
 }
 
-// node_modules/@angular/core/fesm2022/untracked.mjs
+// node_modules/@angular/core/fesm2022/effect.mjs
 function createLinkedSignal(sourceFn, computationFn, equalityFn) {
   const node = Object.create(LINKED_SIGNAL_NODE);
   node.source = sourceFn;
@@ -3337,6 +3337,27 @@ function untracked(nonReactiveReadsFn) {
     return nonReactiveReadsFn();
   } finally {
     setActiveConsumer(prevConsumer);
+  }
+}
+var BASE_EFFECT_NODE = (() => __spreadProps(__spreadValues({}, REACTIVE_NODE), {
+  consumerIsAlwaysLive: true,
+  consumerAllowSignalWrites: true,
+  dirty: true,
+  hasRun: false,
+  kind: "effect"
+}))();
+function runEffect(node) {
+  node.dirty = false;
+  if (node.hasRun && !consumerPollProducersForChange(node)) {
+    return;
+  }
+  node.hasRun = true;
+  const prevNode = consumerBeforeComputation(node);
+  try {
+    node.cleanup();
+    node.fn();
+  } finally {
+    consumerAfterComputation(node, prevNode);
   }
 }
 
@@ -3777,20 +3798,6 @@ function stringifyForError(value) {
     return value.type.name || value.type.toString();
   }
   return renderStringify(value);
-}
-function debugStringifyTypeForError(type) {
-  let componentDef = type[NG_COMP_DEF] || null;
-  if (componentDef !== null && componentDef.debugInfo) {
-    return stringifyTypeFromDebugInfo(componentDef.debugInfo);
-  }
-  return stringifyForError(type);
-}
-function stringifyTypeFromDebugInfo(debugInfo) {
-  if (!debugInfo.filePath || !debugInfo.lineNumber) {
-    return debugInfo.className;
-  } else {
-    return `${debugInfo.className} (at ${debugInfo.filePath}:${debugInfo.lineNumber})`;
-  }
 }
 var NG_RUNTIME_ERROR_CODE = getClosureSafeProperty({ "ngErrorCode": getClosureSafeProperty });
 var NG_RUNTIME_ERROR_MESSAGE = getClosureSafeProperty({ "ngErrorMessage": getClosureSafeProperty });
@@ -10720,7 +10727,12 @@ function handleUncaughtError(lView, error) {
   if (!injector) {
     return;
   }
-  const errorHandler = injector.get(INTERNAL_APPLICATION_ERROR_HANDLER, null);
+  let errorHandler;
+  try {
+    errorHandler = injector.get(INTERNAL_APPLICATION_ERROR_HANDLER, null);
+  } catch {
+    errorHandler = null;
+  }
   errorHandler?.(error);
 }
 function setAllInputsForProperty(tNode, tView, lView, publicName, value) {
@@ -14056,7 +14068,7 @@ function toOutputRefArray(map2) {
   return Object.keys(map2).map((name) => ({ propName: map2[name], templateName: name }));
 }
 function verifyNotAnOrphanComponent(componentDef) {
-  if ((typeof ngJitMode === "undefined" || ngJitMode) && componentDef.debugInfo?.forbidOrphanRendering) {
+  if (false) {
     if (depsTracker.isOrphanComponent(componentDef.type)) {
       throw new RuntimeError(981, `Orphan component found! Trying to render the component ${debugStringifyTypeForError(componentDef.type)} without first loading the NgModule that declares it. It is recommended to make this component standalone in order to avoid this error. If this is not possible now, import the component's NgModule in the appropriate NgModule, or the standalone component in which you are trying to render this component. If this is a lazy import, load the NgModule lazily as well and use its module injector.`);
     }
@@ -14185,7 +14197,7 @@ var ComponentFactory2 = class extends ComponentFactory$1 {
   }
 };
 function createRootTView(rootSelectorOrNode, componentDef, componentBindings, directives) {
-  const tAttributes = rootSelectorOrNode ? ["ng-version", "20.2.1"] : (
+  const tAttributes = rootSelectorOrNode ? ["ng-version", "20.2.4"] : (
     // Extract attributes and classes from the first selector only to match VE behavior.
     extractAttrsAndClassesFromSelector(componentDef.selectors[0])
   );
@@ -19765,7 +19777,8 @@ var ElementRegistry = class {
     const details = this.outElements.get(el) ?? {
       classes: null,
       animateFn: () => {
-      }
+      },
+      isEventBinding: true
     };
     details.animateFn = animateWrapperFn(el, value);
     this.outElements.set(el, details);
@@ -19775,7 +19788,8 @@ var ElementRegistry = class {
     const details = this.outElements.get(el) ?? {
       classes: /* @__PURE__ */ new Set(),
       animateFn: () => {
-      }
+      },
+      isEventBinding: false
     };
     if (typeof value === "function") {
       this.trackResolver(details, value);
@@ -19806,7 +19820,9 @@ var ElementRegistry = class {
       this.remove(el);
       removeFn();
     };
-    timeoutId = setTimeout(remove2, maxAnimationTimeout);
+    if (details.isEventBinding) {
+      timeoutId = setTimeout(remove2, maxAnimationTimeout);
+    }
     details.animateFn(remove2);
   }
 };
@@ -19937,9 +19953,26 @@ var noOpAnimationComplete = () => {
 var enterClassMap = /* @__PURE__ */ new WeakMap();
 var longestAnimations = /* @__PURE__ */ new WeakMap();
 var leavingNodes = /* @__PURE__ */ new WeakMap();
-function clearLeavingNodes(tNode) {
-  if (leavingNodes.get(tNode)?.length === 0) {
+function clearLeavingNodes(tNode, el) {
+  const nodes = leavingNodes.get(tNode);
+  if (nodes && nodes.length > 0) {
+    const ix = nodes.findIndex((node) => node === el);
+    if (ix > -1)
+      nodes.splice(ix, 1);
+  }
+  if (nodes?.length === 0) {
     leavingNodes.delete(tNode);
+  }
+}
+function cancelLeavingNodes(tNode, lView) {
+  const leavingEl = leavingNodes.get(tNode)?.shift();
+  const lContainer = lView[DECLARATION_LCONTAINER];
+  if (lContainer) {
+    const beforeNode = getBeforeNodeForView(tNode.index, lContainer);
+    const previousNode = beforeNode?.previousSibling;
+    if (leavingEl && previousNode && leavingEl === previousNode) {
+      leavingEl.dispatchEvent(new CustomEvent("animationend", { detail: { cancel: true } }));
+    }
   }
 }
 function trackLeavingNodes(tNode, el) {
@@ -19961,12 +19994,12 @@ function ɵɵanimateEnter(value) {
   }
   const tNode = getCurrentTNode();
   const nativeElement = getNativeByTNode(tNode, lView);
+  ngDevMode && assertElementNodes(nativeElement, "animate.enter");
   const renderer = lView[RENDERER];
   const ngZone = lView[INJECTOR].get(NgZone);
   const activeClasses = getClassListFromValue(value);
   const cleanupFns = [];
   const handleAnimationStart = (event) => {
-    setupAnimationCancel(event, renderer);
     const eventName = event instanceof AnimationEvent ? "animationend" : "transitionend";
     ngZone.runOutsideAngular(() => {
       cleanupFns.push(renderer.listen(nativeElement, eventName, handleInAnimationEnd));
@@ -19980,7 +20013,7 @@ function ɵɵanimateEnter(value) {
       cleanupFns.push(renderer.listen(nativeElement, "animationstart", handleAnimationStart));
       cleanupFns.push(renderer.listen(nativeElement, "transitionstart", handleAnimationStart));
     });
-    leavingNodes.get(tNode)?.pop()?.dispatchEvent(new CustomEvent("animationend", { detail: { cancel: true } }));
+    cancelLeavingNodes(tNode, lView);
     trackEnterClasses(nativeElement, activeClasses, cleanupFns);
     for (const klass of activeClasses) {
       renderer.addClass(nativeElement, klass);
@@ -20024,7 +20057,8 @@ function ɵɵanimateEnterListener(value) {
   }
   const tNode = getCurrentTNode();
   const nativeElement = getNativeByTNode(tNode, lView);
-  leavingNodes.get(tNode)?.pop()?.dispatchEvent(new CustomEvent("animationend", { detail: { cancel: true } }));
+  ngDevMode && assertElementNodes(nativeElement, "animate.enter");
+  cancelLeavingNodes(tNode, lView);
   value.call(lView[CONTEXT], { target: nativeElement, animationComplete: noOpAnimationComplete });
   return ɵɵanimateEnterListener;
 }
@@ -20042,6 +20076,7 @@ function ɵɵanimateLeave(value) {
   const tView = getTView();
   const tNode = getCurrentTNode();
   const nativeElement = getNativeByTNode(tNode, lView);
+  ngDevMode && assertElementNodes(nativeElement, "animate.leave");
   const renderer = lView[RENDERER];
   const elementRegistry = getAnimationElementRemovalRegistry();
   ngDevMode && assertDefined(elementRegistry.elements, "Expected `ElementRegistry` to be present in animations subsystem");
@@ -20065,9 +20100,7 @@ function ɵɵanimateLeaveListener(value) {
   const tNode = getCurrentTNode();
   const tView = getTView();
   const nativeElement = getNativeByTNode(tNode, lView);
-  if (nativeElement.nodeType !== Node.ELEMENT_NODE) {
-    return ɵɵanimateLeaveListener;
-  }
+  ngDevMode && assertElementNodes(nativeElement, "animate.leave");
   const elementRegistry = getAnimationElementRemovalRegistry();
   ngDevMode && assertDefined(elementRegistry.elements, "Expected `ElementRegistry` to be present in animations subsystem");
   const renderer = lView[RENDERER];
@@ -20081,7 +20114,7 @@ function ɵɵanimateLeaveListener(value) {
         const event = {
           target: nativeElement,
           animationComplete: () => {
-            clearLeavingNodes(tNode);
+            clearLeavingNodes(tNode, _el);
             removeFn();
           }
         };
@@ -20101,13 +20134,11 @@ function getClassList(value, resolvers) {
   const classList = new Set(value);
   if (resolvers && resolvers.length) {
     for (const resolverFn of resolvers) {
-      const resolvedValue = resolverFn();
-      if (resolvedValue instanceof Array) {
+      const resolvedValue = getClassListFromValue(resolverFn);
+      if (resolvedValue) {
         for (const rv of resolvedValue) {
           classList.add(rv);
         }
-      } else {
-        classList.add(resolvedValue);
       }
     }
   }
@@ -20117,40 +20148,19 @@ function cancelAnimationsIfRunning(element, renderer) {
   if (!areAnimationSupported)
     return;
   const elementData = enterClassMap.get(element);
-  if (element.getAnimations().length > 0) {
-    for (const animation of element.getAnimations()) {
-      if (animation.playState === "running") {
-        animation.cancel();
-      }
-    }
-  } else {
-    if (elementData) {
-      for (const klass of elementData.classList) {
-        renderer.removeClass(element, klass);
-      }
+  if (elementData && elementData.classList.length > 0 && elementHasClassList(element, elementData.classList)) {
+    for (const klass of elementData.classList) {
+      renderer.removeClass(element, klass);
     }
   }
   cleanupEnterClassData(element);
 }
-function setupAnimationCancel(event, renderer) {
-  if (!(event.target instanceof Element))
-    return;
-  const nativeElement = event.target;
-  if (areAnimationSupported) {
-    const elementData = enterClassMap.get(nativeElement);
-    const animations = nativeElement.getAnimations();
-    if (animations.length === 0)
-      return;
-    for (let animation of animations) {
-      animation.addEventListener("cancel", (event2) => {
-        if (nativeElement === event2.target && elementData?.classList) {
-          for (const klass of elementData.classList) {
-            renderer.removeClass(nativeElement, klass);
-          }
-        }
-      });
-    }
+function elementHasClassList(element, classList) {
+  for (const className of classList) {
+    if (element.classList.contains(className))
+      return true;
   }
+  return false;
 }
 function isLongestAnimation(event, nativeElement) {
   const longestAnimation = longestAnimations.get(nativeElement);
@@ -20173,6 +20183,11 @@ function assertAnimationTypes(value, instruction) {
     throw new RuntimeError(650, `'${instruction}' value must be a string of CSS classes or an animation function, got ${stringify(value)}`);
   }
 }
+function assertElementNodes(nativeElement, instruction) {
+  if (nativeElement.nodeType !== Node.ELEMENT_NODE) {
+    throw new RuntimeError(650, `'${instruction}' can only be used on an element node, got ${stringify(nativeElement.nodeType)}`);
+  }
+}
 function animateLeaveClassRunner(el, tNode, classList, finalRemoveFn, renderer, animationsDisabled, ngZone) {
   if (animationsDisabled) {
     longestAnimations.delete(el);
@@ -20184,7 +20199,7 @@ function animateLeaveClassRunner(el, tNode, classList, finalRemoveFn, renderer, 
     if (event instanceof CustomEvent || isLongestAnimation(event, el)) {
       event.stopImmediatePropagation();
       longestAnimations.delete(el);
-      clearLeavingNodes(tNode);
+      clearLeavingNodes(tNode, el);
       finalRemoveFn();
     }
   };
@@ -20200,7 +20215,7 @@ function animateLeaveClassRunner(el, tNode, classList, finalRemoveFn, renderer, 
     requestAnimationFrame(() => {
       determineLongestAnimation(el, longestAnimations, areAnimationSupported);
       if (!longestAnimations.has(el)) {
-        clearLeavingNodes(tNode);
+        clearLeavingNodes(tNode, el);
         finalRemoveFn();
       }
     });
@@ -25670,36 +25685,22 @@ function effect(effectFn, options) {
   }
   return effectRef;
 }
-var BASE_EFFECT_NODE = (() => __spreadProps(__spreadValues({}, REACTIVE_NODE), {
-  consumerIsAlwaysLive: true,
-  consumerAllowSignalWrites: true,
-  dirty: true,
-  hasRun: false,
+var EFFECT_NODE = (() => __spreadProps(__spreadValues({}, BASE_EFFECT_NODE), {
   cleanupFns: void 0,
   zone: null,
-  kind: "effect",
   onDestroyFn: noop2,
   run() {
-    this.dirty = false;
     if (ngDevMode && isInNotificationPhase()) {
       throw new Error(`Schedulers cannot synchronously execute watches while scheduling.`);
     }
-    if (this.hasRun && !consumerPollProducersForChange(this)) {
-      return;
-    }
-    this.hasRun = true;
-    const registerCleanupFn = (cleanupFn) => (this.cleanupFns ??= []).push(cleanupFn);
-    const prevNode = consumerBeforeComputation(this);
     const prevRefreshingViews = setIsRefreshingViews(false);
     try {
-      this.maybeCleanup();
-      this.fn(registerCleanupFn);
+      runEffect(this);
     } finally {
       setIsRefreshingViews(prevRefreshingViews);
-      consumerAfterComputation(this, prevNode);
     }
   },
-  maybeCleanup() {
+  cleanup() {
     if (!this.cleanupFns?.length) {
       return;
     }
@@ -25714,7 +25715,7 @@ var BASE_EFFECT_NODE = (() => __spreadProps(__spreadValues({}, REACTIVE_NODE), {
     }
   }
 }))();
-var ROOT_EFFECT_NODE = (() => __spreadProps(__spreadValues({}, BASE_EFFECT_NODE), {
+var ROOT_EFFECT_NODE = (() => __spreadProps(__spreadValues({}, EFFECT_NODE), {
   consumerMarkedDirty() {
     this.scheduler.schedule(this);
     this.notifier.notify(
@@ -25725,11 +25726,11 @@ var ROOT_EFFECT_NODE = (() => __spreadProps(__spreadValues({}, BASE_EFFECT_NODE)
   destroy() {
     consumerDestroy(this);
     this.onDestroyFn();
-    this.maybeCleanup();
+    this.cleanup();
     this.scheduler.remove(this);
   }
 }))();
-var VIEW_EFFECT_NODE = (() => __spreadProps(__spreadValues({}, BASE_EFFECT_NODE), {
+var VIEW_EFFECT_NODE = (() => __spreadProps(__spreadValues({}, EFFECT_NODE), {
   consumerMarkedDirty() {
     this.view[FLAGS] |= 8192;
     markAncestorsForTraversal(this.view);
@@ -25741,7 +25742,7 @@ var VIEW_EFFECT_NODE = (() => __spreadProps(__spreadValues({}, BASE_EFFECT_NODE)
   destroy() {
     consumerDestroy(this);
     this.onDestroyFn();
-    this.maybeCleanup();
+    this.cleanup();
     this.view[EFFECTS]?.delete(this);
   }
 }))();
@@ -25750,7 +25751,7 @@ function createViewEffect(view, notifier, fn) {
   node.view = view;
   node.zone = typeof Zone !== "undefined" ? Zone.current : null;
   node.notifier = notifier;
-  node.fn = fn;
+  node.fn = createEffectFn(node, fn);
   view[EFFECTS] ??= /* @__PURE__ */ new Set();
   view[EFFECTS].add(node);
   node.consumerMarkedDirty(node);
@@ -25758,7 +25759,7 @@ function createViewEffect(view, notifier, fn) {
 }
 function createRootEffect(fn, scheduler, notifier) {
   const node = Object.create(ROOT_EFFECT_NODE);
-  node.fn = fn;
+  node.fn = createEffectFn(node, fn);
   node.scheduler = scheduler;
   node.notifier = notifier;
   node.zone = typeof Zone !== "undefined" ? Zone.current : null;
@@ -25768,6 +25769,11 @@ function createRootEffect(fn, scheduler, notifier) {
     /* NotificationSource.RootEffect */
   );
   return node;
+}
+function createEffectFn(node, fn) {
+  return () => {
+    fn((cleanupFn) => (node.cleanupFns ??= []).push(cleanupFn));
+  };
 }
 var identityFn = (v) => v;
 function linkedSignal(optionsOrComputation, options) {
@@ -27432,11 +27438,11 @@ var Version = class {
     this.patch = parts.slice(2).join(".");
   }
 };
-var VERSION = new Version("20.2.1");
+var VERSION = new Version("20.2.4");
 function compileNgModuleFactory(injector, options, moduleType) {
   ngDevMode && assertNgModuleType(moduleType);
   const moduleFactory = new NgModuleFactory2(moduleType);
-  if (typeof ngJitMode !== "undefined" && !ngJitMode) {
+  if (true) {
     return Promise.resolve(moduleFactory);
   }
   const compilerOptions = injector.get(COMPILER_OPTIONS, []).concat(options);
@@ -28842,11 +28848,10 @@ var IterableDiffers = class _IterableDiffers {
   static extend(factories) {
     return {
       provide: _IterableDiffers,
-      useFactory: (parent) => {
+      useFactory: () => {
+        const parent = inject2(_IterableDiffers, { optional: true, skipSelf: true });
         return _IterableDiffers.create(factories, parent || defaultIterableDiffersFactory());
-      },
-      // Dependency technically isn't optional, but we can provide a better error message this way.
-      deps: [[_IterableDiffers, new SkipSelf(), new Optional()]]
+      }
     };
   }
   find(iterable) {
@@ -28908,11 +28913,10 @@ var KeyValueDiffers = class _KeyValueDiffers {
   static extend(factories) {
     return {
       provide: _KeyValueDiffers,
-      useFactory: (parent) => {
+      useFactory: () => {
+        const parent = inject2(_KeyValueDiffers, { optional: true, skipSelf: true });
         return _KeyValueDiffers.create(factories, parent || defaultKeyValueDiffersFactory());
-      },
-      // Dependency technically isn't optional, but we can provide a better error message this way.
-      deps: [[_KeyValueDiffers, new SkipSelf(), new Optional()]]
+      }
     };
   }
   find(kv) {
@@ -30611,7 +30615,7 @@ export {
 
 @angular/core/fesm2022/not_found.mjs:
 @angular/core/fesm2022/signal.mjs:
-@angular/core/fesm2022/untracked.mjs:
+@angular/core/fesm2022/effect.mjs:
 @angular/core/fesm2022/weak_ref.mjs:
 @angular/core/fesm2022/primitives/signals.mjs:
 @angular/core/fesm2022/primitives/di.mjs:
@@ -30620,7 +30624,7 @@ export {
 @angular/core/fesm2022/resource.mjs:
 @angular/core/fesm2022/primitives/event-dispatch.mjs:
   (**
-   * @license Angular v20.2.1
+   * @license Angular v20.2.4
    * (c) 2010-2025 Google LLC. https://angular.io/
    * License: MIT
    *)
@@ -30628,7 +30632,7 @@ export {
 @angular/core/fesm2022/debug_node.mjs:
 @angular/core/fesm2022/core.mjs:
   (**
-   * @license Angular v20.2.1
+   * @license Angular v20.2.4
    * (c) 2010-2025 Google LLC. https://angular.io/
    * License: MIT
    *)
@@ -30649,4 +30653,4 @@ export {
    * found in the LICENSE file at https://angular.dev/license
    *)
 */
-//# sourceMappingURL=chunk-EB7GO7YZ.js.map
+//# sourceMappingURL=chunk-5HNVVMDS.js.map

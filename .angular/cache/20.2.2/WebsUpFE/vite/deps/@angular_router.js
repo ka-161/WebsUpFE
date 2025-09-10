@@ -1,6 +1,7 @@
 import {
   Title
-} from "./chunk-NZCF5YK3.js";
+} from "./chunk-QBEHTZME.js";
+import "./chunk-5KCVDYSG.js";
 import {
   HashLocationStrategy,
   LOCATION_INITIALIZED,
@@ -8,7 +9,8 @@ import {
   LocationStrategy,
   PathLocationStrategy,
   ViewportScroller
-} from "./chunk-5S5JVQFM.js";
+} from "./chunk-VDZ6ZZGO.js";
+import "./chunk-OUSM42MY.js";
 import {
   APP_BOOTSTRAP_LISTENER,
   ApplicationRef,
@@ -83,7 +85,6 @@ import {
   provideAppInitializer,
   refCount,
   reflectComponentType,
-  resolveComponentResources,
   runInInjectionContext,
   scan,
   setClassMetadata,
@@ -114,7 +115,7 @@ import {
   ɵɵloadQuery,
   ɵɵqueryRefresh,
   ɵɵsanitizeUrlOrResourceUrl
-} from "./chunk-EB7GO7YZ.js";
+} from "./chunk-5HNVVMDS.js";
 import {
   __async,
   __spreadProps,
@@ -3493,7 +3494,7 @@ function maybeUnwrapDefaultExport(input2) {
   return isWrappedDefaultExport(input2) ? input2["default"] : input2;
 }
 function maybeResolveResources(value) {
-  if ((typeof ngJitMode === "undefined" || ngJitMode) && typeof fetch === "function") {
+  if (false) {
     return resolveComponentResources(fetch).catch((error) => {
       console.error(error);
       return Promise.resolve();
@@ -6005,7 +6006,7 @@ function mapToCanDeactivate(providers) {
 function mapToResolve(provider) {
   return (...params) => inject(provider).resolve(...params);
 }
-var VERSION = new Version("20.2.1");
+var VERSION = new Version("20.2.4");
 export {
   ActivatedRoute,
   ActivatedRouteSnapshot,
@@ -6092,7 +6093,7 @@ export {
 @angular/router/fesm2022/router_module.mjs:
 @angular/router/fesm2022/router.mjs:
   (**
-   * @license Angular v20.2.1
+   * @license Angular v20.2.4
    * (c) 2010-2025 Google LLC. https://angular.io/
    * License: MIT
    *)

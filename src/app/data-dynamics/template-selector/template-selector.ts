@@ -6,7 +6,7 @@ import { TemplateList } from '../../templates/template-list/template-list';
 @Component({
   selector: 'app-template-selector',
   standalone: true,
-  imports: [CommonModule, TemplateService, TemplateList, Template],
+  imports: [CommonModule],
   templateUrl: './template-selector.html',
   styleUrl: './template-selector.scss'
 })

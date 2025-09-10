@@ -1,0 +1,39 @@
+frontend/src/app/
+├── core/                          # Singleton services, app-wide providers
+│   ├── services/
+│   │   ├── auth.service.ts
+│   │   ├── module.service.ts      # For templates
+│   │   └── user-module.service.ts # For user's modules
+│   └── guards/
+│       └── auth.guard.ts
+├── shared/                        # Reusable pieces across the app
+│   ├── components/
+│   │   ├── bubble/
+│   │   └── card/
+│   ├── pipes/
+│   └── models/
+│       ├── module.model.ts
+│       ├── task.model.ts
+│       └── user.model.ts
+├── layout/                        # App shell (header/sidebar/footer)
+│   ├── header/
+│   ├── sidebar/
+│   └── footer/
+├── features/
+│   ├── home/                      # Landing page
+│   │   ├── home.component.ts
+│   │   └── ...
+│   ├── templates/                 # Template selection (read-only)
+│   │   ├── template-selector/
+│   │   └── template-detail/
+│   ├── user-modules/             # User's working modules
+│   │   ├── user-module-list/     # Lists created by user
+│   │   ├── user-module-detail/   # Task list, editing
+│   │   └── sub-task-list/        # Optional: show subtasks per task
+│   └── user/                     # Auth and profile
+│       ├── login/
+│       ├── register/
+│       └── user-profile/
+├── app.routes.ts
+├── app.config.ts                 # Standalone bootstrap + providers
+└── main.ts
