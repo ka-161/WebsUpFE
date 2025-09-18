@@ -27,14 +27,15 @@ export class TemplateDetail implements OnInit
  {}
 
  ngOnInit() {
+  console.log('templatedetail loade');
      const id = this.route.snapshot.paramMap.get('id');
      this.http.get(`/api/modules/${id}`).subscribe(data => this.template = data);
       }
   
   useTemplate() {
-    this.http.post('/api/user-modules', { templateId: this.template._id})
+    this.http.post('/api/user-templates', { templateId: this.template._id})
     .subscribe((newModule: any) => {
-      this.router.navigate(['/user-modules', newModule._id]);
+      this.router.navigate(['/user-templates', newModule._id]);
     });
   }
 }

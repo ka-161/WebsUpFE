@@ -7,10 +7,13 @@ import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-root',
-  imports: [RouterOutlet, ModuleList, CommonModule],
+  standalone: true,
+  imports: [RouterOutlet, CommonModule],
   templateUrl: './app.html',
-  styleUrl: './app.scss'
+  styleUrl: './app.scss',
+  template: `<router-outlet></router-outlet>`
 })
+
 export class App {
-  protected readonly title = signal('WebsUpFE');
+  //protected readonly title = signal('WebsUpFE');
 }

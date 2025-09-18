@@ -10,5 +10,15 @@ import { App } from './app/app';
 });
 */
 
+//clarify
 bootstrapApplication(App, appConfig)
   .catch((err) => console.error(err));
+
+
+  /*
+bootstrapApplication(App, {
+  providers: [
+    provideRouter(routes),
+  ]
+})
+.catch((err) => console.error(err));*/

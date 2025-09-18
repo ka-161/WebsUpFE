@@ -4,15 +4,15 @@ import * as userTemplateDetail from './user-template-detail';
 
 describe('UserTemplateDetail', () => {
   let component: userTemplateDetail.UserTemplateDetail;
-  let fixture: ComponentFixture<userTemplateDetail.UserModuleDetail>;
+  let fixture: ComponentFixture<userTemplateDetail.UserTemplateDetail>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [userTemplateDetail.UserModuleDetail]
+      imports: [userTemplateDetail.UserTemplateDetail]
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(userTemplateDetail.UserModuleDetail);
+    fixture = TestBed.createComponent(userTemplateDetail.UserTemplateDetail);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

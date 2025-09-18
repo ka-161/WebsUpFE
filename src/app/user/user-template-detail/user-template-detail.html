@@ -1,1 +1,21 @@
-<p>user-module-detail works!</p>
+<div *ngIf="userTemplate; else loading">
+  <h2>{{ userTemplate.name }}</h2>
+
+  <div *ngFor="let module of userTemplate.modules; trackBy: trackByModuleName">
+    <h3>{{ module.name }}</h3>
+    <ul>
+      <li *ngFor="let task of module.tasks; trackBy: trackByTaskTitle">
+        {{ task.title }}
+        <ul>
+          <li *ngFor="let subtask of task.subtasks; trackBy: trackBySubtaskTitle">
+            {{ subtask.title }}
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<ng-template #loading>
+  <p>Loading template...</p>
+</ng-template>
